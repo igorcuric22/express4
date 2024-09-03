@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Webcam Stream</title>
+</head>
+<body>
+    <h1>Webcam Stream</h1>
+    <video id="videoElement" width="640" height="480" autoplay></video><br>
+    <button onclick="startStreaming()">Start Streaming</button>
+    
+    <script>
+        let mediaRecorder;
+        let chunks = [];
+        let currentStream;
+
+        async function startStreaming() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                const videoElement = document.getElementById('videoElement');
+                videoElement.srcObject = stream;
+
+                currentStream = stream;
+
+                // Function to start a new recording every 2 seconds
+                function startRecording() {
+                    mediaRecorder = new MediaRecorder(currentStream);
+
+                    mediaRecorder.ondataavailable = function(event) {
+                        if (event.data.size > 0) {
+                            chunks.push(event.data);
+                        }
+                    };
+
+                    mediaRecorder.onstop = function() {
+                        const blob = new Blob(chunks, { type: 'video/webm' });
+                        const formData = new FormData();
+                        formData.append('video', blob, 'stream.webm');
+
+                        fetch('/upload', {
+                            method: 'POST',
+                            body: formData
+                        }).then(response => {
+                            console.log('Upload complete!', response);
+                        }).catch(error => {
+                            console.error('Error uploading', error);
+                        });
+
+                        chunks = []; // Clear chunks array
+                    };
+
+                    mediaRecorder.start(2000); // Start recording
+                }
+
+                // Start the initial recording
+                startRecording();
+
+                // Schedule to start a new recording every 2 seconds
+                setInterval(() => {
+                    mediaRecorder.stop(); // Stop the current recording
+                    startRecording(); // Start a new recording immediately
+                }, 2000);
+
+            } catch (error) {
+                console.error('Error accessing media devices.', error);
+            }
+        }
+    </script>
+</body>
+</html>

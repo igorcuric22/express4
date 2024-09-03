@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Webcam Stream</title>
+</head>
+<body>
+    <h1>Webcam Stream</h1>
+    <video id="videoElement" width="640" height="480" autoplay></video><br>
+    <button onclick="startStream()">Start Streaming</button>
+    
+    <script>
+        async function startStream() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                const videoElement = document.getElementById('videoElement');
+                videoElement.srcObject = stream;
+
+                const mediaRecorder = new MediaRecorder(stream);
+                const chunks = [];
+
+                mediaRecorder.ondataavailable = function(event) {
+                    if (event.data.size > 0) {
+                        chunks.push(event.data);
+                    }
+                };
+
+                mediaRecorder.onstop = function() {
+                    const blob = new Blob(chunks, { type: 'video/webm' });
+                    const formData = new FormData();
+                    formData.append('video', blob, 'stream.webm');
+
+                    fetch('/upload', {
+                        method: 'POST',
+                        body: formData
+                    }).then(response => {
+                        console.log('Upload complete!', response);
+                    }).catch(error => {
+                        console.error('Error uploading', error);
+                    });
+
+                    chunks.length = 0; // Clear chunks array
+                };
+
+                mediaRecorder.start(2000); // Capture frames every 2000ms (2 seconds)
+                setTimeout(() => mediaRecorder.stop(), 10000); // Stop after 10 seconds (adjust as needed)
+            } catch (error) {
+                console.error('Error accessing media devices.', error);
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Play Video from Chunks</title>
+</head>
+<body>
+    <video id="video" width="640" height="480" controls></video>
+    <button id="play-video">Play Uploaded Video</button>
+
+    <script>
+        const video = document.querySelector('video');
+        const playVideoButton = document.getElementById('play-video');
+        let mediaSource;
+        let sourceBuffer;
+        let chunkNumber = 1;
+        let intervalId;
+
+        playVideoButton.addEventListener('click', () => {
+            mediaSource = new MediaSource();
+            video.src = URL.createObjectURL(mediaSource);
+
+            mediaSource.addEventListener('sourceopen', () => {
+                sourceBuffer = mediaSource.addSourceBuffer('video/webm; codecs="vp9"');
+                intervalId = setInterval(fetchNextChunk, 2000); // Fetch a new chunk every 2 seconds
+            });
+        });
+
+        async function fetchNextChunk() {
+            try {
+                const response = await fetch(`/download/video_${chunkNumber}.webm`);
+                if (response.status === 404) {
+                    if (mediaSource.readyState === 'open') {
+                        mediaSource.endOfStream();
+                    }
+                    clearInterval(intervalId); // Stop fetching if no more chunks
+                    return;
+                }
+
+                const data = await response.arrayBuffer();
+                sourceBuffer.appendBuffer(data);
+                chunkNumber++;
+            } catch (error) {
+                console.error('Error fetching video chunk:', error);
+                clearInterval(intervalId);
+            }
+        }
+
+        sourceBuffer.addEventListener('updateend', () => {
+            if (!sourceBuffer.updating && mediaSource.readyState === 'open') {
+                fetchNextChunk();
+            }
+        });
+    </script>
+</body>
+</html>

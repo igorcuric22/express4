@@ -1,0 +1,124 @@
+<!-- <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Webcam Stream Receiver</title>
+</head>
+<body>
+    <h1>Received Stream</h1>
+    <video id="receivedVideo" width="640" height="480" controls autoplay></video><br>
+    
+    <script>
+        const video = document.getElementById('receivedVideo');
+        const mediaSource = new MediaSource();
+        video.src = URL.createObjectURL(mediaSource);
+
+        mediaSource.addEventListener('sourceopen', () => {
+            const mimeCodec = 'video/webm; codecs="vp8, vorbis"';
+            const sourceBuffer = mediaSource.addSourceBuffer(mimeCodec);
+
+            let chunkIndex = 1;
+            let retryInterval = 1000; // Start with 1 second
+            let maxRetries = 10; // Maximum number of retries
+
+            function fetchAndAppendChunk() {
+                fetch(`/chunks/video_${chunkIndex}.webm`)
+                    .then(response => {
+                        if (!response.ok) {
+                            if (response.status === 404 && maxRetries > 0) {
+                                console.log('Chunk not found, retrying in', retryInterval / 1000, 'seconds...');
+                                setTimeout(fetchAndAppendChunk, retryInterval);
+                                retryInterval *= 2; // Exponential back-off
+                                maxRetries--;
+                            } else {
+                                throw new Error('Network response was not ok');
+                            }
+                        } else {
+                            retryInterval = 1000; // Reset retry interval on success
+                            maxRetries = 10; // Reset max retries
+                            return response.arrayBuffer();
+                        }
+                    })
+                    .then(data => {
+                        if (data) {
+                            if (mediaSource.readyState === 'open' && !sourceBuffer.updating) {
+                                sourceBuffer.appendBuffer(data);
+                                chunkIndex++;
+                            }
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching chunk', error);
+                    });
+            }
+
+            sourceBuffer.addEventListener('updateend', fetchAndAppendChunk);
+            fetchAndAppendChunk();
+        });
+    </script>
+</body>
+</html> -->
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Webcam Stream Receiver</title>
+</head>
+<body>
+    <h1>Received Stream</h1>
+    <video id="receivedVideo" width="640" height="480" controls autoplay></video><br>
+    
+    <script>
+        const video = document.getElementById('receivedVideo');
+        const mediaSource = new MediaSource();
+        video.src = URL.createObjectURL(mediaSource);
+
+        mediaSource.addEventListener('sourceopen', () => {
+            const mimeCodec = 'video/webm; codecs="vp8, vorbis"';
+            const sourceBuffer = mediaSource.addSourceBuffer(mimeCodec);
+
+            let chunkIndex = 0;
+            let retryInterval = 1000; // Start with 1 second
+            let maxRetries = 10; // Maximum number of retries
+
+            function fetchAndAppendChunk() {
+                fetch(`/chunks/video_${chunkIndex}.webm`)
+                    .then(response => {
+                        if (!response.ok) {
+                            if (response.status === 404 && maxRetries > 0) {
+                                console.log('Chunk not found, retrying in', retryInterval / 1000, 'seconds...');
+                                setTimeout(fetchAndAppendChunk, retryInterval);
+                                retryInterval *= 2; // Exponential back-off
+                                maxRetries--;
+                            } else {
+                                throw new Error('Network response was not ok');
+                            }
+                        } else {
+                            retryInterval = 1000; // Reset retry interval on success
+                            maxRetries = 10; // Reset max retries
+                            return response.arrayBuffer();
+                        }
+                    })
+                    .then(data => {
+                        if (data) {
+                            if (mediaSource.readyState === 'open' && !sourceBuffer.updating) {
+                                sourceBuffer.appendBuffer(data);
+                                chunkIndex++;
+                            }
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching chunk', error);
+                    });
+            }
+
+            sourceBuffer.addEventListener('updateend', fetchAndAppendChunk);
+            fetchAndAppendChunk();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Camera to Server</title>
+</head>
+<body>
+    <video id="video" width="640" height="480" autoplay></video>
+    <button id="start-record">Start Recording</button>
+    <button id="stop-record">Stop Recording</button>
+
+    <script>
+        let mediaRecorder;
+        let recordedBlobs = [];
+        let mediaSource;
+        let sourceBuffer;
+        let recordInterval;
+        let count = 0;
+
+        const video = document.querySelector('video');
+        const startRecordButton = document.getElementById('start-record');
+        const stopRecordButton = document.getElementById('stop-record');
+
+        async function init() {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            video.srcObject = stream;
+
+            const options = { mimeType: 'video/webm; codecs=vp9' };
+            mediaRecorder = new MediaRecorder(stream, options);
+
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data && event.data.size > 0) {
+                    recordedBlobs.push(event.data);
+                }
+            };
+
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(recordedBlobs, { type: 'video/webm' });
+                uploadVideo(blob);
+                recordedBlobs = [];
+            };
+        }
+
+        function startRecording() {
+            mediaRecorder.start();
+            console.log('MediaRecorder started', mediaRecorder);
+
+            // Stop and start recording every 10 seconds (adjust as needed)
+            recordInterval = setInterval(() => {
+                if (mediaRecorder.state === 'recording') {
+                    mediaRecorder.stop();
+                    mediaRecorder.start();
+                }
+            }, 10000);
+        }
+
+        function stopRecording() {
+            clearInterval(recordInterval);
+            if (mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+            }
+        }
+
+        async function uploadVideo(blob) {
+            const formData = new FormData();
+            formData.append('video', blob, `video_${count++}.webm`);
+
+            await fetch(`/upload/video_${count}.webm`, {
+                method: 'POST',
+                body: formData,
+            });
+
+            alert('Video uploaded successfully!');
+        }
+
+        startRecordButton.addEventListener('click', () => {
+            mediaSource = new MediaSource();
+            mediaSource.addEventListener('sourceopen', handleSourceOpen, false);
+            video.src = window.URL.createObjectURL(mediaSource);
+
+            startRecording();
+        });
+
+        stopRecordButton.addEventListener('click', stopRecording);
+
+        function handleSourceOpen() {
+            sourceBuffer = mediaSource.addSourceBuffer('video/webm; codecs="vp9"');
+        }
+
+        init();
+    </script>
+</body>
+</html>

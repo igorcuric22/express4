@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-time Video Streaming</title>
+    <style>
+        .center {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            height: 100vh;
+        }
+    </style>
+</head>
+<body>
+    <div class="center">
+        <video id="myvideo" width="1000" height="600" controls>
+            Your browser does not support HTML5 video.
+        </video>
+    </div>
+    <script>
+        function permittedGetUserMedia() {
+            return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+        }
+
+        if (permittedGetUserMedia()) {
+            const video = document.querySelector('video');
+            const mediaSource = new MediaSource();
+            video.src = URL.createObjectURL(mediaSource);
+
+            navigator.mediaDevices.getUserMedia({
+                video: true
+            }).then((stream) => processStream(stream, mediaSource));
+        }
+
+        function processStream(stream, mediaSource) {
+            registerRecord(stream);
+            registerPlayer(mediaSource);
+        }
+
+        function registerRecord(stream) {
+            const mediaRecorder = new MediaRecorder(stream);
+            let countUploadChunk = 0;
+
+            mediaRecorder.ondataavailable = (event) => {
+                sendFile(event.data, countUploadChunk);
+                countUploadChunk++;
+            };
+            mediaRecorder.start();
+
+            setInterval(() => {
+                mediaRecorder.requestData();
+            }, 2000);
+        }
+
+        function getName() {
+            return +new Date();
+        }
+
+        const STREAM_NAME = getName();
+
+        function sendFile(file, chunkNumber) {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('name', STREAM_NAME);
+            formData.append('chunk', chunkNumber);
+            fetch('/api/upload', {
+                method: 'POST',
+                body: formData
+            }).then(response => {
+                if (!response.ok) {
+                    console.error('Failed to upload chunk', chunkNumber);
+                }
+            }).catch(err => console.error('Error uploading chunk:', err));
+        }
+
+        function registerPlayer(mediaSource) {
+            const videoBuffer = mediaSource.addSourceBuffer('video/webm; codecs="vp8"');
+            let countDownloadChunk = 0;
+
+            setInterval(() => {
+                fetch(`/api/download?name=${STREAM_NAME}&chunk=${countDownloadChunk}`)
+                    .then((response) => {
+                        if (response.status !== 200) {
+                            throw new Error('no such file');
+                        }
+                        return response.arrayBuffer();
+                    }).then((buffer) => {
+                        videoBuffer.appendBuffer(buffer);
+                        countDownloadChunk++;
+                    }).catch((error) => {
+                        console.error('Error fetching chunk:', error);
+                    });
+            }, 1000);
+        }
+    </script>
+</body>
+</html>

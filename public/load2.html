@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebM MediaSource Example</title>
+</head>
+<body>
+    <video id="video" controls></video>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const video = document.getElementById('video');
+            const mediaSource = new MediaSource();
+
+            video.src = URL.createObjectURL(mediaSource);
+
+            mediaSource.addEventListener('sourceopen', function () {
+                const sourceBuffer = mediaSource.addSourceBuffer('video/webm; codecs="vp8, vorbis"');
+
+                sourceBuffer.addEventListener('updateend', function () {
+                    if (mediaSource.readyState === 'open' && !sourceBuffer.updating && pendingSegments.length > 0) {
+                        const segment = pendingSegments.shift();
+                        if (segment) {
+                            sourceBuffer.appendBuffer(segment);
+                        } else if (mediaSource.readyState === 'open') {
+                            mediaSource.endOfStream();
+                        }
+                    }
+                });
+
+                fetchSegment(0, sourceBuffer);
+            });
+
+            const pendingSegments = [];
+
+            function fetchSegment(start, sourceBuffer) {
+                fetch(`/chunks`, {
+                    headers: {
+                        'Range': `bytes=${start}-${start + 999999}`
+                    }
+                })
+                .then(response => response.arrayBuffer())
+                .then(data => {
+                    if (mediaSource.readyState === 'open') {
+                        if (!sourceBuffer.updating) {
+                            sourceBuffer.appendBuffer(data);
+                        } else {
+                            pendingSegments.push(data);
+                        }
+                        if (data.byteLength === 1000000) {
+                            fetchSegment(start + 1000000, sourceBuffer);
+                        } else if (mediaSource.readyState === 'open') {
+                            mediaSource.endOfStream();
+                        }
+                    }
+                })
+                .catch(error => console.error('Error fetching video segment:', error));
+            }
+        });
+    </script>
+</body>
+</html>
